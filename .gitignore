@@ -1,0 +1,21 @@
+# Python:
+*.pyc
+*.log
+*.wpr
+*.wpu
+*.egg
+*.egg-info
+dist/
+build/
+templates/node_modules
+templates/report_log
+templates/package-lock.json
+venv
+report/icon/*
+report/pdf/*
+logs/*
+.idea
+__pycache__
+
+
+
