@@ -16,6 +16,6 @@ report/pdf/*
 logs/*
 .idea
 __pycache__
-
+migrations
 
 
