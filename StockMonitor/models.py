@@ -22,4 +22,4 @@ class Stock(models.Model):
     max_proportion = models.IntegerField(verbose_name="涨幅比例")
     min_proportion = models.IntegerField(verbose_name="跌幅比例")
     polling_interval = models.IntegerField(verbose_name="轮询间隔(秒)")
-    create_date = models.DateField(verbose_name="创建时间")
+    create_date = models.DateTimeField(auto_now_add=True,verbose_name="创建时间")
