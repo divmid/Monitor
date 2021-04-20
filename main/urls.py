@@ -27,7 +27,7 @@ from StockMonitor import views
 router = routers.DefaultRouter()
 router.register(r'user', views.UserViewSet)
 router.register(r'stock', views.StockViewSet)
-print(router.urls)
+
 
 urlpatterns = [
     # url(r'^login', views.LoginView.as_view()),
