@@ -33,6 +33,7 @@ urlpatterns = [
     # url(r'^login', views.LoginView.as_view()),
     url(r'^logout$', views.LogoutView.as_view()),
     url(r'^login$', views.MyTokenObtainPairView.as_view()),    # 需要添加的内容
+    url(r'^user/add$', views.UserView.as_view()),
     url(r'^user/password$', views.UserPasswrodView.as_view()),
     # url(r'^api/v1/refresh/$', TokenRefreshView.as_view()),
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),

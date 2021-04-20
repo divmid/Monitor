@@ -6,6 +6,7 @@ from rest_framework import viewsets, views, permissions
 from .models import User, Stock
 from .serializers import UserSerializer, StockSerializer
 from django.contrib import auth
+from django.contrib.auth.hashers import make_password
 from rest_framework.reverse import reverse
 from rest_framework_simplejwt import authentication
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -36,6 +37,32 @@ class LogoutView(views.APIView):
     def post(self, request):
         auth.logout(request)
         # Redirect to a success page.
+        return Response({"code": 20000})
+
+
+class UserView(views.APIView):
+    """
+    允许用户查看或编辑的API路径。
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = (authentication.JWTAuthentication,)
+
+    def post(self, request):
+        username = request.data.get('username', '')
+        password = request.data.get('password', '')
+        confirmPassword = request.data.get('confirmPassword', '')
+        dingding_token = request.data.get('dingding_token', '')
+        polling_interval = request.data.get('polling_interval', 30)
+        if password != confirmPassword:
+            return Response({"code": 50008, "message": "两次输入密码不相同"})
+        if User.objects.filter(username=username):
+            return Response({"code": 50009, "message": "用户名已存在"})
+        User.objects.create(
+            username=username,
+            password=make_password(password),
+            dingding_token=dingding_token,
+            polling_interval=polling_interval,
+        )
         return Response({"code": 20000})
 
 
