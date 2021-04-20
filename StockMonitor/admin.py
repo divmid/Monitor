@@ -10,7 +10,7 @@ from .models import User, Stock
 class StocksInfo(admin.ModelAdmin):
     '''设置列表可显示的字段'''
     list_display = ('id', 'name', 'stock_code', 'max_proportion', 'min_proportion',
-                    'polling_interval', 'create_date')
+            'create_date')
 
     '''设置过滤选项'''
     list_filter = ('name', 'stock_code')

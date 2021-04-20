@@ -22,34 +22,13 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['access'] = str(refresh.access_token)
         # Add extra responses here
         data['username'] = self.user.username
+        data['is_superuser'] = self.user.is_superuser
         data['user'] = reverse('user-detail', [self.user.id], request=self.context['request'])
         return data
 
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
-
-
-class LoginView(views.APIView):
-    """
-    允许用户查看或编辑的API路径。
-    """
-    def post(self, request):
-        """
-        返回最新的图书信息
-        """
-        username = request.data.get('username', '')
-        password = request.data.get('password', '')
-        user = auth.authenticate(username=username, password=password)
-        # return Response({"code": 200})
-        if user is not None and user.is_active:
-            # Correct password, and the user is marked "active"
-            auth.login(request, user)
-            # Redirect to a success page.
-            return Response({"code": 20000})
-        else:
-            # Show an error page
-            return Response({"code": 50008})
 
 
 class LogoutView(views.APIView):
@@ -60,19 +39,28 @@ class LogoutView(views.APIView):
         return Response({"code": 20000})
 
 
-class UserView(views.APIView):
+class UserPasswrodView(views.APIView):
     """
     允许用户查看或编辑的API路径。
     """
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = (authentication.JWTAuthentication,)
 
-    # def get(self, request):
-    #     """
-    #     返回最新的图书信息
-    #     """
-    #     print(request)
-    #     return Response({"code": 50008})
+    def post(self, request):
+        username = request.data.get('username', '')
+        originPassword = request.data.get('originPassword', '')
+        password = request.data.get('password', '')
+        confirmPassword = request.data.get('confirmPassword', '')
+        if password != confirmPassword:
+            return Response({"code": 50008, "message": "两次输入密码不相同"})
+        user = auth.authenticate(username=username, password=originPassword)
+        if user is not None and user.is_active:
+            # Correct password, and the user is marked "active"
+            user.set_password(password)
+            user.save()
+            # Redirect to a success page.
+            return Response({"code": 20000})
+        return Response({"code": 50008, "message": "原密码不正确"})
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -95,8 +83,8 @@ class StockViewSet(viewsets.ModelViewSet):
     """
     允许用户查看或编辑的API路径。
     """
-    # permission_classes = [permissions.IsAuthenticated]
-    # authentication_classes = (authentication.JWTAuthentication,)
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = (authentication.JWTAuthentication,)
 
     queryset = Stock.objects.all().order_by('-id')
     serializer_class = StockSerializer
@@ -105,5 +93,3 @@ class StockViewSet(viewsets.ModelViewSet):
         if self.request.user.is_superuser:
             return Stock.objects.all().order_by('-id')
         return Stock.objects.filter(user=self.request.user).order_by('-id')
-
-# curl   -X POST   -H "Content-Type: application/json"   -d '{"username": "乔赫", "password": "bupt1234"}'   http://localhost:8000/api/auth/token/obtain/

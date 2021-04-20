@@ -2,13 +2,11 @@
 #
 # a = random.choice(["张家界","长白山",'格林美',"木林森"])
 # print(a)
-import os
 import time
 import requests   # 爬虫库
-import pandas as pd  # 数据清洗库
 import datetime
-from dingding import send_msg
 from chinese_calendar import is_holiday
+from .dingding import send_msg
 
 """
 0：”大秦铁路”，股票名字；
@@ -63,10 +61,10 @@ def is_runtime():
     return am_start_time < n_time < am_end_time or pm_start_time < n_time < pm_end_time1
 
 # 设置请求头
-while True:
-    time.sleep(60)
+
+def handle(self, *args, **options):
     if not is_runtime():
-        continue
+        return
     response = requests.get(url).text # 获取的文本内容
     content = response.strip()  # 把前后空白字符去除一下
     data_line = content.split("\n")
@@ -75,7 +73,7 @@ while True:
     for key in data:
         proportion = (float(key[3]) / float(key[2]) - 1) * 100
         if min_proportion < proportion < max_proportion:
-            continue
+            return
         proportion = ("%.2f" % proportion) + "%"
         data_list.append(dict(name=key[0].strip().replace('="', '-'),
                 price=key[3],
@@ -87,33 +85,3 @@ while True:
         )
     if data_list:
         send_msg(data_list)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # df = pd.DataFrame(data,dtype=float)  # 创建DataFrame
-    # df[0] = df[0].str.split('="')
-    # df['stock_code'] = df[0].str[0].str.strip()
-    # df["stock_name"] = df[0].str[-1].str.strip()
-    # # del df[0]
-    # df["candle_end_time"] = df[30]+" "+df[31]
-    # df["candle_end_time"] = pd.to_datetime(df["candle_end_time"])
-    # # 其中amount单位是股，volume单位是元
-    # # 买1,卖1都有真心是不错的一个数据源
-    # rename_dict={1:"开盘价",2:"pre_close",3:"收盘价",4:"最高价",5:"最低价",6:"买1价",7:"卖1价",8:"成交金额(元)",9:"成交量(股)", 32:"状态"}
-    # # rename_dict={1:"开盘价",2:"pre_close",3:"收盘价",4:"最高价",5:"最低价",6:"买1价",7:"卖1价",8:"成交金额(元)",9:"成交量(股)"}
-    # df.rename(columns=rename_dict,inplace=True)
-    # # df["状态"] = df["状态"].str.split('";').str[0]
-    # df = df[["开盘价","pre_close","收盘价","最高价","最低价","买1价","卖1价","成交金额(元)","成交量(股)","状态","stock_code","stock_name","candle_end_time"]]
-    # pd.set_option('display.max_columns', None)
-    # print('\r {}'.format(df), end='')
