@@ -28,7 +28,7 @@ async def send_msg(data, dingding_token, session):
          "text": text,
          },
      }
-    async with session.get(dingding_url, json=context, headers=header) as res:
+    async with session.post(dingding_url, json=context, headers=header) as res:
         # print(res.status)
         # print(res.content)
         context = await res.text()

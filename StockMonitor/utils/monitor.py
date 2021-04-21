@@ -45,12 +45,16 @@ from .dingding import send_msg
 为了更全面测试这里分多种情况,正常股票sh600000退市股票：sh600002停牌股票：sz300124，除权股票：sh600276，上市新股：sz002952"""
 
 monitor_Q = queue.Queue()
-
+loop = None
 
 req_url = "http://hq.sinajs.cn/list="
 headers = {"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
            " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 			 Safari/537.36"}
 
+
+def get_loop():
+    global loop
+    return loop
 
 def is_runtime():
     date = datetime.datetime.now().date()
@@ -68,20 +72,29 @@ def is_runtime():
 
 # 设置请求头
 async def handle(data, dingding_token, session):
-    if not is_runtime():
-        return
+    # if not is_runtime():
+    #     return
     url = req_url + ",".join(list(data.keys()))
     # response = requests.get(url).text  # 获取的文本内容
     # content = response.strip()  # 把前后空白字符去除一下
+    print(url)
     async with session.get(url) as res:
         content = await res.text()
     data_line = content.split("\n")
+    print(data_line)
     res_data = [i.replace("var hq_str_", " ").split(",") for i in data_line]
     data_list = []
+
+    print("ddddddddd",res_data)
     for key in res_data:
+        print("aaaaaaaaaa", key)
+        if len(key) < 31:
+            continue
+        print("eeeeeeeeee", float(key[3]), float(key[2]))
         proportion = (float(key[3]) / float(key[2]) - 1) * 100
         name = key[0].strip().replace('="', '-')
         stock_code = name.split('-')[0]
+        print(stock_code)
         min_proportion = data[stock_code]['min_proportion']
         max_proportion = data[stock_code]['max_proportion']
         if min_proportion < proportion < max_proportion:
@@ -96,7 +109,7 @@ async def handle(data, dingding_token, session):
                               )
                          )
     if data_list:
-        send_msg(data_list, dingding_token, session)
+        await send_msg(data_list, dingding_token, session)
 
 
 async def monitor(user, session):
@@ -107,23 +120,28 @@ async def monitor(user, session):
         print("zzzzzzzzzzzzzzzzzzzz")
         while True:
             print("aaaaaaaaaaaaaaaaaaaaaaaa", polling_interval, dingding_token, user)
-            stocks = Stock.objects.filter(user=user)
+            stocks = Stock.objects.filter(user=user.id)
+            print(stocks)
             if stocks:
-                data = [{
+                data ={
                     stock.stock_code: {
                         "max_proportion": stock.max_proportion,
                         "min_proportion": stock.min_proportion,
                     }
-                } for stock in stocks]
+                for stock in stocks}
+                print(data)
                 await handle(data, dingding_token, session)
             if not polling_interval:
                 polling_interval = 30
-            asyncio.sleep(polling_interval)
+            await asyncio.sleep(polling_interval)
     except:
         print(traceback.print_exc())
 
 
 async def start():
+    global loop
+    loop = asyncio.get_running_loop()
+    print("kkkkkkkkkkkkkkkk", loop)
     users = User.objects.filter(is_superuser=False).all()
     # print("ddddddddddd", users)
     # users = User.objects.all()
@@ -152,3 +170,45 @@ def start_engine():
     print("ccccccccccc")
     executor.submit(main)
     executor.shutdown(wait=False)
+
+
+import asyncio
+loop = None
+
+async def start(i):
+    global loop
+    if loop is None:
+        loop = asyncio.get_running_loop()
+    print("kkkkkkkkkkkkkkkk", loop, id(loop))
+    # print("ddddddddddd", users)
+    # users = User.objects.all()
+    # stocks = Stock.objects.all()
+    # print("111111111111111111", stocks)
+
+    # print("ddddddddddd", users)
+    print("uuuuuuuuuuuuuuuu")
+    while 1:
+        print(i)
+        await asyncio.sleep(5)
+
+
+def main():
+    asyncio.run(start(2))
+
+import concurrent.futures
+
+def start_engine():
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    print("ccccccccccc")
+    executor.submit(main)
+    executor.shutdown(wait=False)
+
+start_engine()
+import time
+time.sleep(2)
+while 1:
+    # asyncio.run_coroutine_threadsafe(start(6), loop)
+    # asyncio.run_coroutine_threadsafe(start(4), loop)
+    print(loop, id(loop))
+    print(loop.get_task_factory())
+    time.sleep(10)

@@ -19,6 +19,6 @@ class Stock(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE,  verbose_name="用户主键")
     name = models.CharField(max_length=32, verbose_name="股票名称")
     stock_code = models.CharField(max_length=32, verbose_name="股票代码")
-    max_proportion = models.IntegerField(verbose_name="涨幅比例")
-    min_proportion = models.IntegerField(verbose_name="跌幅比例")
+    max_proportion = models.FloatField(verbose_name="涨幅比例")
+    min_proportion = models.FloatField(verbose_name="跌幅比例")
     create_date = models.DateTimeField(auto_now_add=True,verbose_name="创建时间")
