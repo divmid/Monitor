@@ -11,7 +11,7 @@ from rest_framework.reverse import reverse
 from rest_framework_simplejwt import authentication
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from .utils.monitor import start_engine
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
@@ -120,3 +120,19 @@ class StockViewSet(viewsets.ModelViewSet):
         if self.request.user.is_superuser:
             return Stock.objects.all().order_by('-id')
         return Stock.objects.filter(user=self.request.user).order_by('-id')
+
+
+start_pool = False
+
+class StartMonitorView(views.APIView):
+
+    def get(self, request):
+        global start_pool
+        print("11111111111")
+        if not start_pool:
+            start_pool = True
+        start_engine()
+        print("kkkkkkkkkkkkkk")
+        print(User.objects.all())
+        # Redirect to a success page.
+        return Response({"code": 20000})

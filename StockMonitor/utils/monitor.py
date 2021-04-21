@@ -2,10 +2,15 @@
 #
 # a = random.choice(["张家界","长白山",'格林美',"木林森"])
 # print(a)
-import time
-import requests   # 爬虫库
 import datetime
+import queue
+import aiohttp
+import traceback
+import requests  # 爬虫库
 from chinese_calendar import is_holiday
+import concurrent.futures
+import asyncio
+from StockMonitor.models import User, Stock
 from .dingding import send_msg
 
 """
@@ -39,10 +44,10 @@ from .dingding import send_msg
 """在大范围爬取之前,很有必要先尝试一个小demo,测试一下所想和取得的是否对应
 为了更全面测试这里分多种情况,正常股票sh600000退市股票：sh600002停牌股票：sz300124，除权股票：sh600276，上市新股：sz002952"""
 
-max_proportion = 2
-min_proportion = -2
-stock_code_list = ["sz000831", "sh603993", "sh605376"]
-url = "http://hq.sinajs.cn/list="+",".join(stock_code_list)
+monitor_Q = queue.Queue()
+
+
+req_url = "http://hq.sinajs.cn/list="
 headers = {"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
            " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 			 Safari/537.36"}
 
@@ -60,28 +65,90 @@ def is_runtime():
     n_time = datetime.datetime.now()
     return am_start_time < n_time < am_end_time or pm_start_time < n_time < pm_end_time1
 
-# 设置请求头
 
-def handle(self, *args, **options):
+# 设置请求头
+async def handle(data, dingding_token, session):
     if not is_runtime():
         return
-    response = requests.get(url).text # 获取的文本内容
-    content = response.strip()  # 把前后空白字符去除一下
+    url = req_url + ",".join(list(data.keys()))
+    # response = requests.get(url).text  # 获取的文本内容
+    # content = response.strip()  # 把前后空白字符去除一下
+    async with session.get(url) as res:
+        content = await res.text()
     data_line = content.split("\n")
-    data = [i.replace("var hq_str_"," ").split(",") for i in data_line]
+    res_data = [i.replace("var hq_str_", " ").split(",") for i in data_line]
     data_list = []
-    for key in data:
+    for key in res_data:
         proportion = (float(key[3]) / float(key[2]) - 1) * 100
+        name = key[0].strip().replace('="', '-')
+        stock_code = name.split('-')[0]
+        min_proportion = data[stock_code]['min_proportion']
+        max_proportion = data[stock_code]['max_proportion']
         if min_proportion < proportion < max_proportion:
-            return
+            continue
         proportion = ("%.2f" % proportion) + "%"
         data_list.append(dict(name=key[0].strip().replace('="', '-'),
-                price=key[3],
-                max_price=key[4],
-                min_price=key[5],
-                proportion=proportion,
-                current_time=key[30]+" "+key[31],
-                )
-        )
+                              price=key[3],
+                              max_price=key[4],
+                              min_price=key[5],
+                              proportion=proportion,
+                              current_time=key[30] + " " + key[31],
+                              )
+                         )
     if data_list:
-        send_msg(data_list)
+        send_msg(data_list, dingding_token, session)
+
+
+async def monitor(user, session):
+    print('123456798')
+    try:
+        polling_interval = user.polling_interval
+        dingding_token = user.dingding_token
+        print("zzzzzzzzzzzzzzzzzzzz")
+        while True:
+            print("aaaaaaaaaaaaaaaaaaaaaaaa", polling_interval, dingding_token, user)
+            stocks = Stock.objects.filter(user=user)
+            if stocks:
+                data = [{
+                    stock.stock_code: {
+                        "max_proportion": stock.max_proportion,
+                        "min_proportion": stock.min_proportion,
+                    }
+                } for stock in stocks]
+                await handle(data, dingding_token, session)
+            if not polling_interval:
+                polling_interval = 30
+            asyncio.sleep(polling_interval)
+    except:
+        print(traceback.print_exc())
+
+
+async def start():
+    users = User.objects.filter(is_superuser=False).all()
+    # print("ddddddddddd", users)
+    # users = User.objects.all()
+    # stocks = Stock.objects.all()
+    # print("111111111111111111", stocks)
+    print("ddddddddddd", users)
+    """
+    dingding_token，
+    polling_interval
+    """
+    # print("ddddddddddd", users)
+    async with aiohttp.ClientSession() as session:
+        await asyncio.gather(*[
+            monitor(user, session)
+            for user in users
+        ])
+    print("uuuuuuuuuuuuuuuu")
+
+
+def main():
+    asyncio.run(start())
+
+
+def start_engine():
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    print("ccccccccccc")
+    executor.submit(main)
+    executor.shutdown(wait=False)

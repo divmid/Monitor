@@ -1,7 +1,7 @@
-import requests
 
-def send_msg(data):
-    dingding_url = "https://oapi.dingtalk.com/robot/send?access_token=3db4c237e065b970ac6b0a6d1c8f1949aa8b188e7d2ef4f374c58190fdeb6984"
+async def send_msg(data, dingding_token, session):
+    # dingding_url = "https://oapi.dingtalk.com/robot/send?access_token=3db4c237e065b970ac6b0a6d1c8f1949aa8b188e7d2ef4f374c58190fdeb6984"
+    dingding_url = dingding_token
     header = {"Content-Type": "application/json"}
     text = ""
     for key in data:
@@ -28,5 +28,11 @@ def send_msg(data):
          "text": text,
          },
      }
-    res = requests.post(dingding_url, json=context, headers=header)
-    print(res)
+    async with session.get(dingding_url, json=context, headers=header) as res:
+        # print(res.status)
+        # print(res.content)
+        context = await res.text()
+        print(context)
+    # res = requests.post(dingding_url, json=context, headers=header)
+    # print(res)
+
