@@ -9,6 +9,7 @@ import traceback
 import requests  # 爬虫库
 from chinese_calendar import is_holiday
 import concurrent.futures
+from collections import defaultdict
 import asyncio
 from StockMonitor.models import User, Stock
 from .dingding import send_msg
@@ -50,6 +51,12 @@ loop = None
 req_url = "http://hq.sinajs.cn/list="
 headers = {"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
            " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 			 Safari/537.36"}
+
+user_dict = defaultdict(lambda :0)
+
+def add_user_dict(user_id):
+    global user_dict
+    user_dict[user_id]+=1
 
 
 def get_loop():
@@ -117,10 +124,13 @@ async def monitor(user, session):
     try:
         polling_interval = user.polling_interval
         dingding_token = user.dingding_token
+        user_id = user.id
         print("zzzzzzzzzzzzzzzzzzzz")
         while True:
+            if user_dict.get(user_id) % 2 == 1:
+                break
             print("aaaaaaaaaaaaaaaaaaaaaaaa", polling_interval, dingding_token, user)
-            stocks = Stock.objects.filter(user=user.id)
+            stocks = Stock.objects.filter(user=user_id)
             print(stocks)
             if stocks:
                 data ={
@@ -137,10 +147,31 @@ async def monitor(user, session):
     except:
         print(traceback.print_exc())
 
+async def start_one_user(user_id):
+
+    users = User.objects.filter(id=user_id).all()
+    # print("ddddddddddd", users)
+    # users = User.objects.all()
+    # stocks = Stock.objects.all()
+    # print("111111111111111111", stocks)
+    print("ddddddddddd", users)
+    """
+    dingding_token，
+    polling_interval
+    """
+    # print("ddddddddddd", users)
+    async with aiohttp.ClientSession() as session:
+        await asyncio.gather(*[
+            monitor(user, session)
+            for user in users
+        ])
+    print("uuuuuuuuuuuuuuuu")
+
 
 async def start():
     global loop
-    loop = asyncio.get_running_loop()
+    if loop is None:
+        loop = asyncio.get_running_loop()
     print("kkkkkkkkkkkkkkkk", loop)
     users = User.objects.filter(is_superuser=False).all()
     # print("ddddddddddd", users)
@@ -161,6 +192,10 @@ async def start():
     print("uuuuuuuuuuuuuuuu")
 
 
+def start_main_one_user(user_id):
+    asyncio.run_coroutine_threadsafe(start_one_user(user_id), get_loop())
+
+
 def main():
     asyncio.run(start())
 
@@ -170,45 +205,3 @@ def start_engine():
     print("ccccccccccc")
     executor.submit(main)
     executor.shutdown(wait=False)
-
-
-import asyncio
-loop = None
-
-async def start(i):
-    global loop
-    if loop is None:
-        loop = asyncio.get_running_loop()
-    print("kkkkkkkkkkkkkkkk", loop, id(loop))
-    # print("ddddddddddd", users)
-    # users = User.objects.all()
-    # stocks = Stock.objects.all()
-    # print("111111111111111111", stocks)
-
-    # print("ddddddddddd", users)
-    print("uuuuuuuuuuuuuuuu")
-    while 1:
-        print(i)
-        await asyncio.sleep(5)
-
-
-def main():
-    asyncio.run(start(2))
-
-import concurrent.futures
-
-def start_engine():
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    print("ccccccccccc")
-    executor.submit(main)
-    executor.shutdown(wait=False)
-
-start_engine()
-import time
-time.sleep(2)
-while 1:
-    # asyncio.run_coroutine_threadsafe(start(6), loop)
-    # asyncio.run_coroutine_threadsafe(start(4), loop)
-    print(loop, id(loop))
-    print(loop.get_task_factory())
-    time.sleep(10)
