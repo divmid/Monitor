@@ -17,6 +17,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf.urls import url, include
 from rest_framework import routers
+from django.views.generic.base import TemplateView
 # from rest_framework_simplejwt.views import (
 #     TokenObtainPairView,
 #     TokenRefreshView,
@@ -30,7 +31,6 @@ router.register(r'stock', views.StockViewSet)
 
 
 urlpatterns = [
-    # url(r'^login', views.LoginView.as_view()),
     url(r'^logout$', views.LogoutView.as_view()),
     url(r'^login$', views.MyTokenObtainPairView.as_view()),    # 需要添加的内容
     url(r'^user/add$', views.UserView.as_view()),
@@ -38,6 +38,8 @@ urlpatterns = [
     url(r'^monitor$', views.StartMonitorView.as_view()),
     # url(r'^api/v1/refresh/$', TokenRefreshView.as_view()),
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    url(r'', TemplateView.as_view(template_name="index.html")),
+    # url(r'^login', views.LoginView.as_view()),
     path('admin/', admin.site.urls),
     # url(r'^user',views.UserViewSet.as_view({'get': 'list'}), name="user"),
     url(r'^', include(router.urls)),
