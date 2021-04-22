@@ -1,12 +1,7 @@
-# import random
-#
-# a = random.choice(["张家界","长白山",'格林美',"木林森"])
-# print(a)
 import datetime
-import queue
+
 import aiohttp
 import traceback
-import requests  # 爬虫库
 from chinese_calendar import is_holiday
 import concurrent.futures
 from collections import defaultdict
@@ -45,59 +40,58 @@ from .dingding import send_msg
 """在大范围爬取之前,很有必要先尝试一个小demo,测试一下所想和取得的是否对应
 为了更全面测试这里分多种情况,正常股票sh600000退市股票：sh600002停牌股票：sz300124，除权股票：sh600276，上市新股：sz002952"""
 
-monitor_Q = queue.Queue()
 loop = None
 
 req_url = "http://hq.sinajs.cn/list="
 headers = {"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
            " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 			 Safari/537.36"}
 
-user_dict = defaultdict(lambda :0)
+ADD = 1
+UPDATE = 2
+DELETE = 3
 
-def add_user_dict(user_id):
-    global user_dict
-    user_dict[user_id]+=1
+user_dict = defaultdict(lambda :ADD)
 
-
-def get_loop():
-    global loop
-    return loop
+ahead_of_time = 15*60
 
 def is_runtime():
+    interval = 0
+    flag = False
     date = datetime.datetime.now().date()
     if is_holiday(date):
-        return False
-    # 范围时间
+        return flag, 3*60*60
     am_start_time = datetime.datetime.strptime(str(date) + '9:30', '%Y-%m-%d%H:%M')
     am_end_time = datetime.datetime.strptime(str(date) + '11:30', '%Y-%m-%d%H:%M')
     pm_start_time = datetime.datetime.strptime(str(date) + '13:00', '%Y-%m-%d%H:%M')
-    pm_end_time1 = datetime.datetime.strptime(str(date) + '15:00', '%Y-%m-%d%H:%M')
+    pm_end_time = datetime.datetime.strptime(str(date) + '15:00', '%Y-%m-%d%H:%M')
+    end_time = datetime.datetime.strptime(str(date) + '23:59', '%Y-%m-%d%H:%M')
     # 当前时间
     n_time = datetime.datetime.now()
-    return am_start_time < n_time < am_end_time or pm_start_time < n_time < pm_end_time1
+    if n_time < am_start_time:
+        interval = (am_start_time - n_time).seconds - ahead_of_time
+    elif am_start_time < n_time < am_end_time:
+        flag= True
+    elif am_end_time < n_time < pm_start_time:
+        interval = (pm_start_time - n_time).seconds - ahead_of_time
+    elif pm_start_time < n_time < pm_end_time:
+        flag= True
+    elif n_time > pm_end_time:
+        interval = (end_time - n_time).seconds + (am_start_time - n_time).seconds - ahead_of_time
+    return flag, interval
 
 
 # 设置请求头
 async def handle(data, dingding_token, session):
-    # if not is_runtime():
-    #     return
     url = req_url + ",".join(list(data.keys()))
-    # response = requests.get(url).text  # 获取的文本内容
-    # content = response.strip()  # 把前后空白字符去除一下
-    print(url)
     async with session.get(url) as res:
         content = await res.text()
     data_line = content.split("\n")
-    print(data_line)
     res_data = [i.replace("var hq_str_", " ").split(",") for i in data_line]
     data_list = []
 
-    print("ddddddddd",res_data)
     for key in res_data:
-        print("aaaaaaaaaa", key)
         if len(key) < 31:
             continue
-        print("eeeeeeeeee", float(key[3]), float(key[2]))
         proportion = (float(key[3]) / float(key[2]) - 1) * 100
         name = key[0].strip().replace('="', '-')
         stock_code = name.split('-')[0]
@@ -119,81 +113,70 @@ async def handle(data, dingding_token, session):
         await send_msg(data_list, dingding_token, session)
 
 
-async def monitor(user, session):
-    print('123456798')
+async def monitor(user):
     try:
         polling_interval = user.polling_interval
         dingding_token = user.dingding_token
         user_id = user.id
-        print("zzzzzzzzzzzzzzzzzzzz")
-        while True:
-            if user_dict.get(user_id) % 2 == 1:
-                break
-            print("aaaaaaaaaaaaaaaaaaaaaaaa", polling_interval, dingding_token, user)
-            stocks = Stock.objects.filter(user=user_id)
-            print(stocks)
-            if stocks:
-                data ={
-                    stock.stock_code: {
-                        "max_proportion": stock.max_proportion,
-                        "min_proportion": stock.min_proportion,
-                    }
-                for stock in stocks}
-                print(data)
-                await handle(data, dingding_token, session)
-            if not polling_interval:
-                polling_interval = 30
-            await asyncio.sleep(polling_interval)
+        async with aiohttp.ClientSession() as session:
+            while True:
+                if user_dict[user_id] == UPDATE:
+                    user = User.objects.filter(id=user_id).first()
+                    polling_interval = user.polling_interval
+                    dingding_token = user.dingding_token
+                    user_dict[user_id] = ADD
+                elif user_dict[user_id] == DELETE:
+                    del user_dict[user_id]
+                    break
+                print("aaaaaaa", polling_interval, dingding_token, user)
+                flag, interval = is_runtime()
+                if not flag:
+                    print(flag, interval)
+                    await asyncio.sleep(interval)
+                stocks = Stock.objects.filter(user=user_id)
+                if stocks:
+                    data = {
+                        stock.stock_code: {
+                            "max_proportion": stock.max_proportion,
+                            "min_proportion": stock.min_proportion,
+                        }
+                    for stock in stocks}
+                    await handle(data, dingding_token, session)
+                if not polling_interval:
+                    polling_interval = 30
+                await asyncio.sleep(polling_interval)
     except:
         print(traceback.print_exc())
 
+async def userhandle(users):
+    await asyncio.gather(*[
+        monitor(user)
+        for user in users
+    ])
+
 async def start_one_user(user_id):
-
     users = User.objects.filter(id=user_id).all()
-    # print("ddddddddddd", users)
-    # users = User.objects.all()
-    # stocks = Stock.objects.all()
-    # print("111111111111111111", stocks)
-    print("ddddddddddd", users)
-    """
-    dingding_token，
-    polling_interval
-    """
-    # print("ddddddddddd", users)
-    async with aiohttp.ClientSession() as session:
-        await asyncio.gather(*[
-            monitor(user, session)
-            for user in users
-        ])
-    print("uuuuuuuuuuuuuuuu")
-
+    await userhandle(users)
 
 async def start():
     global loop
     if loop is None:
         loop = asyncio.get_running_loop()
-    print("kkkkkkkkkkkkkkkk", loop)
     users = User.objects.filter(is_superuser=False).all()
-    # print("ddddddddddd", users)
-    # users = User.objects.all()
-    # stocks = Stock.objects.all()
-    # print("111111111111111111", stocks)
-    print("ddddddddddd", users)
-    """
-    dingding_token，
-    polling_interval
-    """
-    # print("ddddddddddd", users)
-    async with aiohttp.ClientSession() as session:
-        await asyncio.gather(*[
-            monitor(user, session)
-            for user in users
-        ])
-    print("uuuuuuuuuuuuuuuu")
+    await userhandle(users)
 
 
-def start_main_one_user(user_id):
-    asyncio.run_coroutine_threadsafe(start_one_user(user_id), get_loop())
+def add_one_user(user_id):
+    global loop
+    asyncio.run_coroutine_threadsafe(start_one_user(user_id), loop)
+
+
+def update_one_user(user_id):
+    user_dict[int(user_id)] = UPDATE
+
+
+def delete_one_user(user_id):
+    user_dict[int(user_id)] = DELETE
 
 
 def main():
@@ -202,6 +185,5 @@ def main():
 
 def start_engine():
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    print("ccccccccccc")
     executor.submit(main)
     executor.shutdown(wait=False)

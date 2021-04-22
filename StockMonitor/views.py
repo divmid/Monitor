@@ -11,7 +11,7 @@ from rest_framework.reverse import reverse
 from rest_framework_simplejwt import authentication
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .utils.monitor import start_engine
+from .utils.monitor import start_engine, add_one_user, update_one_user, delete_one_user
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
@@ -57,12 +57,13 @@ class UserView(views.APIView):
             return Response({"code": 50008, "message": "两次输入密码不相同"})
         if User.objects.filter(username=username):
             return Response({"code": 50009, "message": "用户名已存在"})
-        User.objects.create(
+        user = User.objects.create(
             username=username,
             password=make_password(password),
             dingding_token=dingding_token,
             polling_interval=polling_interval,
         )
+        add_one_user(user.id)
         return Response({"code": 20000})
 
 
@@ -105,6 +106,16 @@ class UserViewSet(viewsets.ModelViewSet):
             return User.objects.all().order_by('-date_joined')
         return User.objects.filter(id=self.request.user.id).order_by('-date_joined')
 
+    def update(self, request, *args, **kwargs):
+        res = super().update(request, *args, **kwargs)
+        update_one_user(kwargs.get("pk"))
+        return res
+
+    def destroy(self, request, *args, **kwargs):
+        res = super().destroy(request, *args, **kwargs)
+        delete_one_user(kwargs.get("pk"))
+        return res
+
 
 class StockViewSet(viewsets.ModelViewSet):
     """
@@ -124,15 +135,12 @@ class StockViewSet(viewsets.ModelViewSet):
 
 start_pool = False
 
+
 class StartMonitorView(views.APIView):
 
     def get(self, request):
         global start_pool
-        print("11111111111")
         if not start_pool:
+            start_engine()
             start_pool = True
-        start_engine()
-        print("kkkkkkkkkkkkkk")
-        print(User.objects.all())
-        # Redirect to a success page.
         return Response({"code": 20000})

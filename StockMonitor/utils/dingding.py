@@ -20,7 +20,7 @@ async def send_msg(data, dingding_token, session):
             proportion=key.get("proportion"),
             current_time=key.get("current_time"),
         )
-    print(text)
+    # print(text)
     context = {
      "msgtype": "markdown",
      "markdown": {
@@ -32,7 +32,7 @@ async def send_msg(data, dingding_token, session):
         # print(res.status)
         # print(res.content)
         context = await res.text()
-        print(context)
+        # print(context)
     # res = requests.post(dingding_url, json=context, headers=header)
     # print(res)
 
