@@ -2,6 +2,7 @@
 # Create your views here.
 
 from rest_framework.response import Response
+from django.shortcuts import render
 from rest_framework import viewsets, views, permissions
 from .models import User, Stock
 from .serializers import UserSerializer, StockSerializer
@@ -30,6 +31,13 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
+
+
+class IndexView(views.APIView):
+
+    def get(self, request):
+        # Redirect to a success page.
+        return render(request, "index.html")
 
 
 class LogoutView(views.APIView):

@@ -30,17 +30,23 @@ router.register(r'user', views.UserViewSet)
 router.register(r'stock', views.StockViewSet)
 
 
-urlpatterns = [
-    url(r'^logout$', views.LogoutView.as_view()),
-    url(r'^login$', views.MyTokenObtainPairView.as_view()),    # 需要添加的内容
+child_urlpatterns = [
     url(r'^user/add$', views.UserView.as_view()),
     url(r'^user/password$', views.UserPasswrodView.as_view()),
-    url(r'^monitor$', views.StartMonitorView.as_view()),
     # url(r'^api/v1/refresh/$', TokenRefreshView.as_view()),
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    url(r'', TemplateView.as_view(template_name="index.html")),
     # url(r'^login', views.LoginView.as_view()),
     path('admin/', admin.site.urls),
     # url(r'^user',views.UserViewSet.as_view({'get': 'list'}), name="user"),
     url(r'^', include(router.urls)),
+]
+
+
+urlpatterns = [
+    url(r'^index$', views.IndexView.as_view()),  # 需要添加的内容
+    url(r'^logout$', views.LogoutView.as_view()),
+    url(r'^login$', views.MyTokenObtainPairView.as_view()),    # 需要添加的内容
+    url(r'^monitor$', views.StartMonitorView.as_view()),
+    url(r'^api/v1/', include(child_urlpatterns)),
+    url(r'', views.IndexView.as_view()),  # 需要添加的内容
 ]
